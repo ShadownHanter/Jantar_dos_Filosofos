@@ -1,0 +1,108 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
+
+#define NUM 5  // número de filósofos e garfos
+
+// estados possíveis de um filosofo
+enum { PENSANDO, FOME, COMENDO };
+
+// vetor de estados para os 5 filosofos
+int estado[NUM];
+
+// Mutex principal para proteger o acesso ao vetor de estados
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// variaveis de condição para cada filosofo esperar a vez de comer
+pthread_cond_t cond[NUM];
+
+// retorna o filósofo à esquerda de i
+int left(int i){
+	  return (i + NUM - 1) % NUM; 
+}
+// retorna o filósofo à direita de i
+int right(int i) {
+	 return (i + 1) % NUM; 
+}
+void testa(int i) {
+    // só pode comer se está com fome e os vizinhos não estão comendo
+    if (estado[i] == FOME &&
+        estado[left(i)] != COMENDO &&
+        estado[right(i)] != COMENDO) {
+        
+        estado[i] = COMENDO;  // muda o estado
+        pthread_cond_signal(&cond[i]);  // da um signal para ativar a thread dele para comer
+    }
+}
+
+void pegar_garfos(int i) {
+    pthread_mutex_lock(&mutex);  // impede o acesso mútuo
+
+    estado[i] = FOME;
+    printf("Filosofo %d esta com FOME\n", i);
+
+    testa(i);  // vê se pode comer agora
+
+    // se não conseguiu comer, espera o sinal 
+    while (estado[i] != COMENDO)
+        pthread_cond_wait(&cond[i], &mutex);
+
+    pthread_mutex_unlock(&mutex);  // libera o acesso
+}
+
+void devolver_garfos(int i) {
+    pthread_mutex_lock(&mutex);
+
+    estado[i] = PENSANDO;
+    printf("filosofo %d terminou de comer\n", i);
+
+    // após liberar os garfos, verifica se os vizinhos com fome podem comer
+    testa(left(i));
+    testa(right(i));
+
+    pthread_mutex_unlock(&mutex);
+}
+
+void* filosofo(void* arg) {
+    int id = *(int*)arg;
+
+    while (1) {
+        // pensa por um tempo aleatório de até 4 segundos
+        printf("filosofo %d esta PENSANDO\n", id);
+        usleep(rand() % 4000000);
+
+        // tenta pegar os garfos ( seção crítica)
+        pegar_garfos(id);
+
+        // come por um tempo aleatório de até 5 segundos
+        printf("filosofo %d esta COMENDO\n", id);
+        usleep(rand() % 5000000);
+
+        // devolve os garfos e avisa aos vizinhos que se estiverem com fome podem comer
+        devolver_garfos(id);
+    }
+
+    return NULL;
+}
+
+int main() {
+    pthread_t threads[NUM];
+    int ids[NUM];
+	int i; // criada apenas para for
+	
+    // inicializa cada variável de condição e cria uma thread por filósofo
+    for ( i = 0; i < NUM; i++) {
+        pthread_cond_init(&cond[i], NULL);  // condição associada a cada filósofo
+        estado[i] = PENSANDO;               // começa pensando
+        ids[i] = i;
+        pthread_create(&threads[i], NULL, filosofo, &ids[i]);
+    }
+
+    // espera as threads 
+    for (i = 0; i < NUM; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    return 0;
+}
