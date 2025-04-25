@@ -1,0 +1,92 @@
+/*
+ * O código soluciona o problema do jantar dos filósofos, considerando 5 filósofos, com um garfo cada. Nós optamos por utilizar o 
+ * algoritmo Round Robin estudado na disciplina de Sistemas operacionais. Apesar da notoriedade de que não é o modo mais eficiente
+ * de solução, optamos por utilizar esse método aprendido em sala para ver sua execução na solução do problema      
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
+
+#define NUM 5  // definindo número de filósofos e garfos(5)
+
+// vetor de mutexes representando os garfos
+pthread_mutex_t garfo[NUM];
+
+// vetor de variáveis de condição, para cada filósofo esperar sua vez de comer
+pthread_cond_t cond[NUM];
+
+// mutex e variável para controle da vez de execução (escalonador)
+pthread_mutex_t scheduler_mutex = PTHREAD_MUTEX_INITIALIZER;
+int troca_filosofo = 0;  // indica de quem é a vez de comer primeiro(o 0)
+
+// função executada por cada thread (filósofo)
+void* philosopher(void* arg) {
+    int id = *(int*)arg;  // id do filosofo
+    int left = id;  // garfo da esquerda do filosofo atual(possui mesmo id)
+    int right = (id + 1) % NUM;  // garfo à direita (do filosofo a direita, por isso id+1, e divide-se para posteriormente retornar a posição 0)
+
+// loop infinito para os filosofos(threads) pensarem e executarem
+    while (1) {
+        // filósofo pensa por um tempo aleatório de 0 a 10 segundos
+        printf("filosofo %d pensando\n", id);
+        usleep(rand() % 10000000);
+
+        // filosofo aguarda sua vez no escalonador, atraves do wait
+        pthread_mutex_lock(&scheduler_mutex);
+        while (troca_filosofo != id) {
+            pthread_cond_wait(&cond[id], &scheduler_mutex);
+        }
+
+        // filosofo da vez pega os garfos (esquerda e direita)
+        printf("filosofo %d pegando os garfos\n", id);
+        usleep(1000000);
+        pthread_mutex_lock(&garfo[left]);
+        pthread_mutex_lock(&garfo[right]);
+
+        // filosofo come por um tempo aleatório de 0 a 5 segundos
+        printf("filosofo %d comendo\n", id);
+        usleep(rand() % 5000000);
+
+        // filosofo comendo solta os garfos
+        printf("filosofo %d soltando os garfos\n", id);
+        pthread_mutex_unlock(&garfo[left]);
+        pthread_mutex_unlock(&garfo[right]);
+        usleep(1000000);
+
+        // passa a vez para o próximo filósofo na fila de escalonamento
+        troca_filosofo = (troca_filosofo + 1) % NUM;
+        pthread_cond_signal(&cond[troca_filosofo]);  // acorda o próximo o proximo filosofo com o signal do semáforo
+        pthread_mutex_unlock(&scheduler_mutex);
+    }
+
+    return NULL;
+}
+
+int main() {
+    pthread_t threads[NUM];  // threads para os filósofos
+    int ids[NUM];  // ids para passar como argumento
+
+    // inicializa os mutexes (garfos) e variáveis de condição
+    for (int i = 0; i < NUM; i++) {
+        pthread_mutex_init(&garfo[i], NULL);
+        pthread_cond_init(&cond[i], NULL);
+        ids[i] = i;
+    }
+
+    // cria as threads dos filósofos, chamando a função philosopher e passando o id 
+    for (int i = 0; i < NUM; i++) {
+        pthread_create(&threads[i], NULL, philosopher, &ids[i]);
+    }
+
+    // inicia o processo, começando pelo filósofo 0(o primeiro da fila de escalonamento)
+    pthread_cond_signal(&cond[0]);
+
+    // aguarda todas as threads (infinito), porém esse for permite que a main espere as threads, ou seja que rode infinitamente
+    for (int i = 0; i < NUM; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    return 0;
+}
