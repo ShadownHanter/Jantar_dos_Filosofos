@@ -12,7 +12,7 @@ Para rodar o programa:\
 gcc NomeDoArquivo.c -o NomeDoExecutavel -lpthread\
 Ex: \
 gcc Solucao_Round-Robin -o jantar -lpthread\
-4- Agora execute o programa. Ex: ./jantar\
+4- Agora execute o programa. Ex: ./jantar
 
 ## Solução Nº2 - Solucao_otimizada
 Essa é a solução "ideal" que simula perfeitamente o problema, corrigindo as deadlocks e impedindo starvation. Nela temos uma competição real por recursos e o escalonar media esse problema.\
@@ -24,4 +24,4 @@ Para rodar o programa:\
 gcc NomeDoArquivo.c -o NomeDoExecutavel -lpthread\
 Ex: \
 gcc Solucao_otimizada -o jantar2 -lpthread\
-4- Agora execute o programa. Ex: ./jantar2\
+4- Agora execute o programa. Ex: ./jantar2
